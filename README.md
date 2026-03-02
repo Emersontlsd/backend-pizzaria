@@ -1,92 +1,210 @@
-# 🍕 Pizzaria API - Back-end Unificado
 
-Esta é uma API REST completa para gerenciamento de pizzarias, permitindo o controle de usuários, categorias, produtos e o fluxo de pedidos (desde o rascunho até a entrega).
+# 🍕 Pizzaria API - Backend
 
----
-
-## 🚀 Tecnologias Utilizadas
-- **Node.js** com **TypeScript**
-- **Express**: Framework web.
-- **Prisma ORM**: Manipulação do banco de dados.
-- **PostgreSQL**: Banco de dados relacional.
-- **JWT (JSON Web Token)**: Autenticação segura.
-- **Multer**: Upload de imagens.
-- **BCryptJS**: Criptografia de senhas.
+API REST para gerenciamento de pizzaria, com autenticação, cadastro de usuários, categorias, produtos e fluxo completo de pedidos.
 
 ---
 
-## 🏗️ Arquitetura e Camadas do Sistema
-
-O projeto segue uma estrutura de separação de responsabilidades para facilitar a manutenção:
-
-### 1. Controllers
-Responsáveis por receber a requisição HTTP (`req`), extrair os dados e enviar para o Service. Eles retornam a resposta final (`res`).
-- **Exemplo**: `CreateProductController.ts` extrai dados do corpo da requisição e o arquivo de imagem via Multer.
-
-### 2. Services (Regras de Negócio)
-Onde reside a lógica principal. O Service valida se os dados são permitidos e interage com o banco de dados via Prisma.
-- **CreateUserService**: Valida se o e-mail já existe e criptografa a senha.
-- **AddItemService**: Verifica se o `order_id` é válido antes de inserir o item.
-
-### 3. Middlewares
-- **isAuthenticated**: Protege rotas privadas. Verifica se o Token JWT é válido e injeta o `user_id` no objeto `req` para que os controllers saibam quem está operando o sistema.
+## 🚀 Tecnologias
+- Node.js + TypeScript
+- Express
+- Prisma ORM
+- PostgreSQL
+- JWT (autenticação)
+- Multer (upload de imagens)
+- BCryptJS (criptografia de senhas)
 
 ---
 
-## 🛠️ Endpoints e Documentação JSON
+## 🏗️ Arquitetura & Convenções
 
-### 👤 Usuários e Autenticação
-- **POST `/users`**: Cadastro de novos administradores.
-- **POST `/session`**: Login e geração de Token.
-- **GET `/me`**: Detalhes do perfil logado (Requer Token).
+O projeto segue as seguintes camadas e regras:
 
-**Exemplo JSON (Cadastro):**
-```json
-{
-  "name": "Admin",
-  "email": "admin@pizzaria.com",
-  "password": "senha_segura"
-}
+### Controllers
+- Recebem a requisição, extraem dados do `req` e chamam o Service.
+- Retornam resposta ao cliente.
+- Não possuem lógica de negócio.
+
+### Services
+- Implementam toda a regra de negócio.
+- Validam dados, interagem com o banco via Prisma.
+- Exemplo: `CreateUserService` verifica se o e-mail existe, criptografa senha e cria usuário.
+
+### Middlewares
+- `isAuthenticated`: Valida JWT, injeta `user_id` no `req`.
+- `isAdmin`: Garante que apenas usuários com `role: ADMIN` acessem rotas restritas.
+- `validateSchema`: Valida dados da requisição usando Zod e schemas.
+
+### Schemas
+- Todos endpoints possuem validação Zod.
+- Exemplo: `createUserSchema` exige nome (min 3), e-mail válido, senha (min 6).
 
 ---
 
-## 📂 Categorias e Produtos
-º POST /category: Cria categoria (Ex: {"name": "Bebidas"}).
+## 📋 Endpoints Principais
 
-º GET /category: Lista todas as categorias.
+### 👤 Usuários
+- **POST `/users`**: Cadastro de usuário (admin).
+  - Validação: nome, e-mail, senha.
+  - Exemplo JSON:
+    ```json
+    {
+      "name": "Admin",
+      "email": "admin@pizzaria.com",
+      "password": "senha_segura"
+    }
+    ```
+- **POST `/session`**: Login, retorna JWT.
+  - Exemplo JSON:
+    ```json
+    {
+      "email": "admin@pizzaria.com",
+      "password": "senha_segura"
+    }
+    ```
+- **GET `/me`**: Retorna dados do usuário logado (requer JWT).
 
-º POST /product: Cadastro via Multipart Form (envio de imagem).
+### 📂 Categorias
+- **POST `/category`**: Cria categoria (admin).
+  - Exemplo JSON:
+    ```json
+    {
+      "name": "Bebidas"
+    }
+    ```
+- **GET `/category`**: Lista todas as categorias.
 
-## 📋 Fluxo de Pedidos (Orders)
-POST /order: Abre uma mesa (Status: Rascunho/Draft).
+### 🛒 Produtos
+- **POST `/product`**: Cadastro de produto (admin, multipart/form-data).
+  - Campos: nome, preço, descrição, categoria_id, imagem.
+- **GET `/products`**: Lista produtos.
+- **DELETE `/product`**: Remove produto (admin).
 
-º POST /order/add: Adiciona itens ao pedido.
+### 📋 Pedidos
+- **POST `/order`**: Cria pedido (mesa).
+  - Exemplo JSON:
+    ```json
+    {
+      "table": 5,
+      "name": "Mesa 5"
+    }
+    ```
+- **POST `/order/add`**: Adiciona item ao pedido.
+  - Exemplo JSON:
+    ```json
+    {
+      "order_id": "UUID_DO_PEDIDO",
+      "product_id": "UUID_DO_PRODUTO",
+      "amount": 2
+    }
+    ```
+- **PUT `/order/send`**: Envia pedido para cozinha.
+  - Exemplo JSON:
+    ```json
+    {
+      "order_id": "UUID_DO_PEDIDO",
+      "name": "Mesa 5"
+    }
+    ```
+- **PUT `/order/finish`**: Finaliza pedido.
+  - Exemplo JSON:
+    ```json
+    {
+      "order_id": "UUID_DO_PEDIDO"
+    }
+    ```
+- **DELETE `/order`**: Remove pedido.
+  - Query: `order_id=...`
+- **DELETE `/order/remove`**: Remove item do pedido.
+  - Query: `item_id=...`
 
-º PUT /order/send: Finaliza o rascunho e envia para a cozinha.
+---
 
-º PUT /order/finish: Marca o pedido como concluído.
+## 🛡️ Regras de Validação
 
-º Exemplo JSON (Adicionar Item):
+- Todos endpoints usam schemas Zod para validação.
+- Erros retornam status 400 com detalhes do campo e mensagem.
+- Exemplo de erro:
+  ```json
+  {
+    "error": "Erro de validação",
+    "details": [
+      { "campo": "email", "mensagem": "Precisa ser um email válido" }
+    ]
+  }
+  ```
 
-```json
-{
-  "order_id": "UUID_DO_PEDIDO",
-  "product_id": "UUID_DO_PRODUTO",
-  "amount": 2
-}
+---
 
---- 
+## 🔒 Autenticação & Autorização
 
-🔄 Fluxo de Alteração e Deleção
+- JWT obrigatório para rotas protegidas.
+- Usuário admin tem acesso a rotas de cadastro/remoção de categorias e produtos.
 
-º   Alteração (PUT):
+---
 
-º     /order/send: Muda o campo draft de true para false.
+## 📦 Como Utilizar
 
-º     /order/finish: Muda o campo status de false para true.
+1. Clone o projeto via GitHub:
+  ```bash
+  git clone https://github.com/Emersontlsd/backend-pizzaria.git
+  cd backend-pizzaria
+  ```
+2. Instale dependências:
+  ```bash
+  npm install
+  ```
+3. Configure variáveis de ambiente (`.env`):
+  - `DATABASE_URL` (Postgres)
+  - `JWT_SECRET`
+4. Execute as migrations:
+  ```bash
+  npx prisma migrate dev
+  ```
+5. Inicie o servidor:
+  ```bash
+  npm run dev
+  ```
 
-º   Deleção (DELETE):
+---
 
-º     /order?order_id=...: Deleta o pedido por completo.
+## 📝 Convenções do Projeto
 
-º     /order/remove?item_id=...: Remove apenas um item específico da lista.
+- Controllers: apenas manipulação de req/res.
+- Services: toda lógica de negócio.
+- Middlewares: autenticação, autorização, validação.
+- Schemas: validação de dados obrigatória.
+- Respostas padronizadas (JSON).
+
+---
+
+## 📚 Exemplos de Fluxo
+
+### Cadastro de Usuário
+1. Envia JSON para `/users`.
+2. Validação via schema.
+3. Service verifica duplicidade, criptografa senha, salva no banco.
+4. Controller retorna dados do usuário (sem senha).
+
+### Criação de Pedido
+1. Envia JSON para `/order`.
+2. Service cria pedido com status draft.
+3. Adiciona itens via `/order/add`.
+4. Envia para cozinha via `/order/send`.
+5. Finaliza via `/order/finish`.
+
+---
+
+## 🧩 Estrutura de Pastas
+
+- `src/controllers`: Manipulação de requisições.
+- `src/services`: Regras de negócio.
+- `src/middlewares`: Autenticação, autorização, validação.
+- `src/schemas`: Schemas Zod para validação.
+- `src/prisma`: Instância do Prisma Client.
+
+---
+
+## 📄 Licença
+
+Desenvolvido por Emerson S (udemy course).
